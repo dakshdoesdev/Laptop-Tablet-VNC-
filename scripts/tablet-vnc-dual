@@ -1,0 +1,205 @@
+#!/bin/bash
+set -e
+
+export DISPLAY="${DISPLAY:-:0}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+
+SCRIPT_NAME="Tablet VNC Dual"
+MAIN_MONITOR="eDP-1"
+
+LEFT_OUTPUT="TABLET-VNC-LEFT"
+TOP_OUTPUT="TABLET-VNC-TOP"
+
+LEFT_RES="1280x800"
+TOP_RES="1280x800"
+REFRESH="60"
+LEFT_FPS="60"
+TOP_FPS="30"
+
+LEFT_PORT="5900"
+TOP_PORT="5901"
+LISTEN_ADDR="0.0.0.0"
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tablet-vnc-dual"
+SOCK_LEFT="$STATE_DIR/wayvnc-left.sock"
+SOCK_TOP="$STATE_DIR/wayvnc-top.sock"
+LOG_LEFT="$STATE_DIR/wayvnc-left.log"
+LOG_TOP="$STATE_DIR/wayvnc-top.log"
+
+get_tether_ip() {
+    ip -4 -o addr show up scope global 2>/dev/null | awk '
+        $2 ~ /^(usb|rndis|enx)/ {
+            split($4, a, "/");
+            print a[1];
+            exit
+        }'
+}
+
+get_non_tether_ip() {
+    ip -4 -o addr show up scope global 2>/dev/null | awk '
+        $2 !~ /^(lo|usb|rndis|enx|docker|virbr|veth)/ {
+            split($4, a, "/");
+            print a[1];
+            exit
+        }'
+}
+
+notify() {
+    notify-send "$SCRIPT_NAME" "$1" --expire-time=4000 2>/dev/null || echo "$1"
+}
+
+check_deps() {
+    command -v hyprctl >/dev/null 2>&1 || { echo "hyprctl missing"; return 1; }
+    command -v wayvnc >/dev/null 2>&1 || { echo "wayvnc missing"; return 1; }
+}
+
+set_main_monitor_y() {
+    local y="${1:-0}"
+    hyprctl keyword monitor "$MAIN_MONITOR,preferred,0x${y},auto" >/dev/null 2>&1 || true
+}
+
+is_running() {
+    pgrep -f "$LEFT_OUTPUT" >/dev/null 2>&1 && \
+    pgrep -f "$TOP_OUTPUT" >/dev/null 2>&1
+}
+
+cleanup_outputs() {
+    hyprctl output remove "TABLET-VNC" >/dev/null 2>&1 || true
+    hyprctl output remove "$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl output remove "$TOP_OUTPUT" >/dev/null 2>&1 || true
+}
+
+apply_workspace_layout() {
+    # Fixed mapping requested:
+    # LEFT display: workspaces 7,8
+    # TOP display: workspace 9
+    hyprctl keyword workspace "7, monitor:$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl keyword workspace "8, monitor:$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl keyword workspace "9, monitor:$TOP_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor 7 "$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor 8 "$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl dispatch moveworkspacetomonitor 9 "$TOP_OUTPUT" >/dev/null 2>&1 || true
+}
+
+stop_dual() {
+    pkill -x wayvnc >/dev/null 2>&1 || true
+    sleep 0.3
+    cleanup_outputs
+    set_main_monitor_y 0
+    notify "✅ Dual tablet VNC stopped"
+}
+
+start_dual() {
+    check_deps
+    mkdir -p "$STATE_DIR"
+
+    stop_dual >/dev/null 2>&1 || true
+
+    local left_w="${LEFT_RES%x*}"
+    local top_h="${TOP_RES#*x}"
+
+    # Stack layout: top tablet at y=0, main monitor moved down by tablet height.
+    set_main_monitor_y "$top_h"
+
+    hyprctl output create headless "$LEFT_OUTPUT" >/dev/null 2>&1 || true
+    hyprctl output create headless "$TOP_OUTPUT" >/dev/null 2>&1 || true
+    sleep 1
+
+    # Left tablet beside main monitor.
+    hyprctl keyword monitor "$LEFT_OUTPUT,${LEFT_RES}@${REFRESH},-${left_w}x${top_h},1" >/dev/null 2>&1
+    # Top tablet above main monitor.
+    hyprctl keyword monitor "$TOP_OUTPUT,${TOP_RES}@${REFRESH},0x0,1" >/dev/null 2>&1
+    sleep 1
+
+    apply_workspace_layout
+
+    : > "$LOG_LEFT"
+    : > "$LOG_TOP"
+
+    nohup wayvnc -S "$SOCK_LEFT" -o "$LEFT_OUTPUT" -f "$LEFT_FPS" "$LISTEN_ADDR" "$LEFT_PORT" >"$LOG_LEFT" 2>&1 &
+    local pid_left=$!
+    nohup wayvnc -S "$SOCK_TOP" -o "$TOP_OUTPUT" -f "$TOP_FPS" "$LISTEN_ADDR" "$TOP_PORT" >"$LOG_TOP" 2>&1 &
+    local pid_top=$!
+
+    sleep 2
+    if ! kill -0 "$pid_left" 2>/dev/null || ! kill -0 "$pid_top" 2>/dev/null; then
+        notify "❌ Failed starting one/both wayvnc instances"
+        echo "Left log: $LOG_LEFT"
+        echo "Top log:  $LOG_TOP"
+        return 1
+    fi
+
+    local host_ips tether_ip other_ip
+    host_ips=$(ip -4 -o addr show up scope global 2>/dev/null | awk '{split($4,a,"/"); print a[1]}' | paste -sd ', ' -)
+    tether_ip=$(get_tether_ip)
+    other_ip=$(get_non_tether_ip)
+
+    echo "========================================"
+    echo "✅ Dual Tablet VNC Started"
+    echo "LEFT output: $LEFT_OUTPUT -> ${LISTEN_ADDR}:${LEFT_PORT} @ ${LEFT_FPS} FPS"
+    echo "TOP  output: $TOP_OUTPUT  -> ${LISTEN_ADDR}:${TOP_PORT} @ ${TOP_FPS} FPS"
+    if [ -n "$tether_ip" ]; then
+        echo "Connect tablet #1 (LEFT, lowest latency): ${tether_ip}:${LEFT_PORT}"
+    else
+        echo "Connect tablet #1 (LEFT): laptop-ip:${LEFT_PORT}"
+    fi
+    if [ -n "$other_ip" ]; then
+        echo "Connect tablet #2 (TOP):  ${other_ip}:${TOP_PORT}"
+    else
+        echo "Connect tablet #2 (TOP):  laptop-ip:${TOP_PORT}"
+    fi
+    echo "Host IP(s): ${host_ips:-unknown}"
+    echo "========================================"
+
+    notify "✅ Dual VNC running\nLEFT:${LEFT_PORT}@${LEFT_FPS} TOP:${TOP_PORT}@${TOP_FPS}"
+}
+
+status_dual() {
+    echo "Tablet VNC Dual status"
+    if is_running; then
+        echo "  wayvnc: running (both instances)"
+    else
+        echo "  wayvnc: not fully running"
+    fi
+
+    hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.name=="eDP-1" or .name=="TABLET-VNC-LEFT" or .name=="TABLET-VNC-TOP") | "  \(.name): x=\(.x) y=\(.y) \(.width)x\(.height) scale=\(.scale)"'
+
+    echo "  ports: LEFT=${LEFT_PORT}@${LEFT_FPS} TOP=${TOP_PORT}@${TOP_FPS}"
+}
+
+show_help() {
+    cat <<'EOF'
+Usage: tablet-vnc-dual [start|stop|toggle|status|help]
+
+Layout:
+  LEFT tablet output on port 5900 at 60 FPS
+  TOP  tablet output on port 5901 at 30 FPS
+  Workspace mapping: 7,8 -> LEFT and 9 -> TOP
+
+Commands:
+  start    Start dual outputs and both wayvnc servers
+  stop     Stop both wayvnc servers, remove outputs, restore eDP-1 y=0
+  toggle   Toggle dual setup
+  status   Show running state and monitor coords
+  help     Show this help
+EOF
+}
+
+case "${1:-toggle}" in
+    start) start_dual ;;
+    stop) stop_dual ;;
+    toggle)
+        if is_running; then
+            stop_dual
+        else
+            start_dual
+        fi
+        ;;
+    status) status_dual ;;
+    help|--help|-h) show_help ;;
+    *)
+        echo "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac

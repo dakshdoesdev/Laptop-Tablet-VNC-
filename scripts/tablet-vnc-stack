@@ -1,0 +1,131 @@
+#!/bin/bash
+set -e
+
+export DISPLAY="${DISPLAY:-:0}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+
+LEFT_SCRIPT="/home/dux/.local/bin/tablet-vnc"
+TOP_SCRIPT="/home/dux/.local/bin/tablet-vnc-top"
+GUI_APP_PRIMARY="/home/dux/Work/tries/projects/MAIN TABLET VNC/tablet-vnc-gui-2026-03-21/tablet_vnc_gui.py"
+GUI_APP_LEGACY="/home/dux/Work/tries/projects/tablet-vnc-gui-2026-03-21/tablet_vnc_gui.py"
+LEFT_PROFILE="${XDG_STATE_HOME:-$HOME/.local/state}/tablet-vnc/profile.env"
+TOP_PROFILE="${XDG_STATE_HOME:-$HOME/.local/state}/tablet-vnc-top/profile.env"
+
+usage() {
+    cat <<'EOF'
+Usage: tablet-vnc-stack [start|stop|status|gui|help]
+
+Commands:
+  start   Start enabled tablet profiles from the saved GUI/CLI settings
+  stop    Stop both tablet profiles
+  status  Show status for both tablet profiles
+  gui     Open the tablet control window
+  help    Show this help
+EOF
+}
+
+read_profile_flag() {
+    local file="$1"
+    local key="$2"
+    local fallback="${3:-}"
+
+    if [ ! -f "$file" ]; then
+        echo "$fallback"
+        return 0
+    fi
+
+    awk -F= -v key="$key" -v fallback="$fallback" '
+        $1 == key {
+            print substr($0, index($0, "=") + 1)
+            found=1
+            exit
+        }
+        END {
+            if (!found) {
+                print fallback
+            }
+        }
+    ' "$file"
+}
+
+profile_enabled() {
+    [ "$(read_profile_flag "$1" GUI_ENABLED 1)" != "0" ]
+}
+
+start_stack() {
+    local rc=0
+    local started=0
+
+    if profile_enabled "$LEFT_PROFILE"; then
+        "$LEFT_SCRIPT" quickstart || rc=1
+        started=1
+    else
+        echo "USB tablet disabled in GUI profile."
+    fi
+
+    if profile_enabled "$TOP_PROFILE"; then
+        "$TOP_SCRIPT" quickstart || rc=1
+        started=1
+    else
+        echo "Type-C tablet disabled in GUI profile."
+    fi
+
+    if [ "$started" -eq 0 ]; then
+        echo "No enabled tablets. Open tablet-vnc-stack gui and enable one first."
+        return 1
+    fi
+
+    return "$rc"
+}
+
+stop_stack() {
+    "$LEFT_SCRIPT" stop || true
+    "$TOP_SCRIPT" stop || true
+}
+
+status_stack() {
+    echo "=== USB Tablet ==="
+    "$LEFT_SCRIPT" status || true
+    echo
+    echo "=== Type-C Tablet ==="
+    "$TOP_SCRIPT" status || true
+}
+
+resolve_gui_app() {
+    if [ -f "$GUI_APP_PRIMARY" ]; then
+        echo "$GUI_APP_PRIMARY"
+        return 0
+    fi
+
+    if [ -f "$GUI_APP_LEGACY" ]; then
+        echo "$GUI_APP_LEGACY"
+        return 0
+    fi
+
+    find /home/dux/Work/tries/projects -maxdepth 4 -name tablet_vnc_gui.py 2>/dev/null | head -n 1
+}
+
+open_gui() {
+    local gui_app
+    gui_app="$(resolve_gui_app)"
+
+    if [ -z "$gui_app" ] || [ ! -f "$gui_app" ]; then
+        echo "Tablet VNC GUI file not found."
+        return 1
+    fi
+
+    exec python3 "$gui_app"
+}
+
+case "${1:-start}" in
+    start) start_stack ;;
+    stop) stop_stack ;;
+    status) status_stack ;;
+    gui) open_gui ;;
+    help|--help|-h) usage ;;
+    *)
+        echo "Unknown command: $1"
+        usage
+        exit 1
+        ;;
+esac

@@ -1,0 +1,1146 @@
+#!/bin/bash
+# Tablet VNC Extended Display Manager
+# Manages wayvnc virtual display for Lenovo Tab 4 10
+
+set -e
+
+# Ensure display environment is set (needed when run from keybindings)
+export DISPLAY="${DISPLAY:-:0}"
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
+
+# Configuration
+VIRTUAL_OUTPUT="TABLET-VNC-TOP"
+RESOLUTION="1280x800"
+REFRESH="60"
+VNC_PORT="5901"
+FPS="30"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tablet-vnc-top"
+WAYVNC_LOG="$STATE_DIR/wayvnc.log"
+WAYVNC_SOCKET="$STATE_DIR/wayvnc.sock"
+PROFILE_FILE="$STATE_DIR/profile.env"
+VERTICAL_ALIGN="top"
+WORKSPACE_START="7"
+WORKSPACE_COUNT="3"
+CONNECT_MODE_DEFAULT="tether"
+CONNECT_HOST_DEFAULT=""
+POSITION_DEFAULT="top"
+
+# Main laptop display (for positioning)
+MAIN_MONITOR="eDP-1"
+
+# Dynamically detect main monitor position and width
+# NOTE: Always call these functions fresh - don't cache!
+get_main_monitor_x() {
+    # Get X position of main monitor (for positioning relative to it)
+    local x_pos
+    x_pos=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$MAIN_MONITOR']; print(int(m[0]['x'])) if m else 0" 2>/dev/null)
+    if [ -n "$x_pos" ]; then
+        echo "$x_pos"
+    else
+        echo "0"
+    fi
+}
+
+get_main_monitor_y() {
+    local y_pos
+    y_pos=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$MAIN_MONITOR']; print(int(m[0]['y'])) if m else 0" 2>/dev/null)
+    if [ -n "$y_pos" ]; then
+        echo "$y_pos"
+    else
+        echo "0"
+    fi
+}
+
+get_main_monitor_width() {
+    # Try to get width from hyprctl
+    local width
+    width=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$MAIN_MONITOR']; print(int(round(float(m[0]['width'])/max(float(m[0].get('scale',1.0)),1.0)))) if m else 1280" 2>/dev/null)
+    if [ -n "$width" ] && [ "$width" != "0" ]; then
+        echo "$width"
+    else
+        echo "1920"
+    fi
+}
+
+get_main_monitor_height() {
+    local height
+    height=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$MAIN_MONITOR']; print(int(round(float(m[0]['height'])/max(float(m[0].get('scale',1.0)),1.0)))) if m else 720" 2>/dev/null)
+    if [ -n "$height" ] && [ "$height" != "0" ]; then
+        echo "$height"
+    else
+        echo "720"
+    fi
+}
+
+get_main_monitor_mode() {
+    hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[x for x in d if x['name']=='$MAIN_MONITOR']; print(f\"{int(m[0]['width'])}x{int(m[0]['height'])}@{int(round(float(m[0]['refreshRate'])))}\") if m else print('1920x1080@60')" 2>/dev/null
+}
+
+get_main_monitor_scale() {
+    hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[x for x in d if x['name']=='$MAIN_MONITOR']; print(f\"{float(m[0].get('scale',1.0)):.2f}\") if m else print('1.00')" 2>/dev/null
+}
+
+get_layout_left_edge() {
+    local left
+    left=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[x for x in d if x.get('name')!='$VIRTUAL_OUTPUT']; print(min([int(x['x']) for x in m])) if m else 0" 2>/dev/null)
+    if [ -n "$left" ]; then
+        echo "$left"
+    else
+        echo "0"
+    fi
+}
+
+get_layout_right_edge() {
+    local right
+    right=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[x for x in d if x.get('name')!='$VIRTUAL_OUTPUT']; print(max([int(x['x'])+int(round(float(x['width'])/max(float(x.get('scale',1.0)),1.0))) for x in m])) if m else 1280" 2>/dev/null)
+    if [ -n "$right" ]; then
+        echo "$right"
+    else
+        echo "1920"
+    fi
+}
+
+# Get script name for notifications
+SCRIPT_NAME="Tablet VNC"
+
+notify() {
+    notify-send "$SCRIPT_NAME" "$1" --expire-time=4000 2>/dev/null || echo "$1"
+}
+
+sanitize_int() {
+    echo "$1" | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+$/){print $i; exit}}'
+}
+
+is_positive_int() {
+    [[ "$1" =~ ^[0-9]+$ ]] && [ "$1" -gt 0 ]
+}
+
+normalize_profile_settings() {
+    local changed=0
+
+    if ! is_positive_int "$REFRESH"; then
+        REFRESH="60"
+        changed=1
+    fi
+
+    if ! is_positive_int "$FPS"; then
+        FPS="30"
+        changed=1
+    fi
+
+    if [ "$FPS" -gt "$REFRESH" ]; then
+        FPS="$REFRESH"
+        changed=1
+    fi
+
+    if ! is_positive_int "$WORKSPACE_START"; then
+        WORKSPACE_START="7"
+        changed=1
+    fi
+
+    if ! is_positive_int "$WORKSPACE_COUNT"; then
+        WORKSPACE_COUNT="3"
+        changed=1
+    fi
+
+    [ "$changed" -eq 0 ]
+}
+
+load_profile() {
+    [ -f "$PROFILE_FILE" ] || return 0
+    # shellcheck disable=SC1090
+    . "$PROFILE_FILE"
+
+    [ -n "${PROFILE_POSITION:-}" ] && POSITION_DEFAULT="$PROFILE_POSITION"
+    [ -n "${PROFILE_REFRESH:-}" ] && REFRESH="$PROFILE_REFRESH"
+    [ -n "${PROFILE_FPS:-}" ] && FPS="$PROFILE_FPS"
+    [ -n "${PROFILE_ALIGN:-}" ] && VERTICAL_ALIGN="$PROFILE_ALIGN"
+    [ -n "${PROFILE_MODE:-}" ] && CONNECT_MODE_DEFAULT="$PROFILE_MODE"
+    [ -n "${PROFILE_HOST:-}" ] && CONNECT_HOST_DEFAULT="$PROFILE_HOST"
+    [ -n "${PROFILE_WS_START:-}" ] && WORKSPACE_START="$PROFILE_WS_START"
+    [ -n "${PROFILE_WS_COUNT:-}" ] && WORKSPACE_COUNT="$PROFILE_WS_COUNT"
+
+    if ! normalize_profile_settings; then
+        save_profile "${POSITION_DEFAULT:-top}" "${CONNECT_MODE_DEFAULT:-tether}" "${CONNECT_HOST_DEFAULT:-}"
+    fi
+}
+
+save_profile() {
+    local pos="$1"
+    local mode="$2"
+    local host="$3"
+    mkdir -p "$STATE_DIR"
+    cat > "$PROFILE_FILE" <<EOF
+PROFILE_POSITION=$pos
+PROFILE_REFRESH=$REFRESH
+PROFILE_FPS=$FPS
+PROFILE_ALIGN=$VERTICAL_ALIGN
+PROFILE_MODE=$mode
+PROFILE_HOST=$host
+PROFILE_WS_START=$WORKSPACE_START
+PROFILE_WS_COUNT=$WORKSPACE_COUNT
+GUI_ENABLED=${GUI_ENABLED:-1}
+EOF
+}
+
+# Check if we have a terminal for interactive mode
+has_terminal() {
+    [ -t 0 ] && [ -t 1 ]
+}
+
+check_adb() {
+    if ! command -v adb &> /dev/null; then
+        notify "❌ ADB not installed. Install android-tools."
+        return 1
+    fi
+    return 0
+}
+
+check_wayvnc() {
+    if ! command -v wayvnc &> /dev/null; then
+        notify "❌ wayvnc not installed. Install wayvnc."
+        return 1
+    fi
+    return 0
+}
+
+start_wayvnc_server() {
+    local listen_addr="$1"
+    local pid
+
+    : > "$WAYVNC_LOG"
+    wayvnc -Ldebug -S "$WAYVNC_SOCKET" -o "$VIRTUAL_OUTPUT" -f "$FPS" "$listen_addr" "$VNC_PORT" >"$WAYVNC_LOG" 2>&1 &
+    pid=$!
+    sleep 2
+
+    if kill -0 "$pid" 2>/dev/null; then
+        WAYVNC_PID="$pid"
+        WAYVNC_BIND_ADDR="$listen_addr"
+        return 0
+    fi
+
+    pkill -f "$(get_wayvnc_pattern)" 2>/dev/null || true
+    return 1
+}
+
+start_wayvnc_with_retry() {
+    local connect_mode="$1"
+    local connect_host="$2"
+    local bind_host=""
+    local attempt
+
+    WAYVNC_PID=""
+    WAYVNC_BIND_ADDR=""
+
+    if [ "$connect_mode" = "adb" ]; then
+        for attempt in 1 2 3; do
+            start_wayvnc_server "127.0.0.1" && {
+                return 0
+            }
+            sleep 1
+        done
+        return 1
+    fi
+
+    bind_host=$(resolve_connect_host "$connect_host")
+    if [ -n "$bind_host" ] && [ "$bind_host" != "127.0.0.1" ]; then
+        for attempt in 1 2; do
+            start_wayvnc_server "$bind_host" && {
+                return 0
+            }
+            sleep 1
+        done
+    fi
+
+    for attempt in 1 2 3; do
+        start_wayvnc_server "0.0.0.0" && {
+            return 0
+        }
+        sleep 1
+    done
+
+    return 1
+}
+
+get_adb_device_count() {
+    if ! command -v adb > /dev/null 2>&1; then
+        echo "0"
+        return
+    fi
+    adb devices 2>/dev/null | awk 'NR>1 && $2=="device" {count++} END {print count+0}'
+}
+
+get_tether_ip() {
+    ip -4 -o addr show up scope global 2>/dev/null | awk '
+        $2 ~ /^(usb|rndis|enx)/ {
+            split($4, a, "/");
+            print a[1];
+            exit
+        }'
+}
+
+get_network_ip() {
+    ip -4 -o addr show up scope global 2>/dev/null | awk '
+        $2 !~ /^(lo|usb|rndis|enx|tailscale|docker|virbr|veth|br-)/ {
+            split($4, a, "/");
+            print a[1];
+            exit
+        }'
+}
+
+have_local_ip() {
+    local candidate="$1"
+    [ -n "$candidate" ] || return 1
+    ip -4 -o addr show up scope global 2>/dev/null | awk -v candidate="$candidate" '
+        {
+            split($4, a, "/")
+            if (a[1] == candidate) {
+                found=1
+                exit
+            }
+        }
+        END { exit !found }'
+}
+
+resolve_connect_host() {
+    local preferred="$1"
+    local tether_ip
+    local network_ip
+
+    if have_local_ip "$preferred"; then
+        echo "$preferred"
+        return 0
+    fi
+
+    tether_ip=$(get_tether_ip)
+    if [ -n "$tether_ip" ]; then
+        echo "$tether_ip"
+        return 0
+    fi
+
+    network_ip=$(get_network_ip)
+    if [ -n "$network_ip" ]; then
+        echo "$network_ip"
+        return 0
+    fi
+}
+
+detect_output_state() {
+    if is_running && is_output_created; then
+        echo "running"
+    elif is_running; then
+        echo "server-only"
+    elif is_output_created; then
+        echo "stale-output"
+    else
+        echo "stopped"
+    fi
+}
+
+get_wayvnc_pattern() {
+    echo "wayvnc .* -o ${VIRTUAL_OUTPUT} .* ${VNC_PORT}$"
+}
+
+is_running() {
+    pgrep -f "$(get_wayvnc_pattern)" > /dev/null 2>&1
+}
+
+is_output_created() {
+    hyprctl monitors | grep -q "$VIRTUAL_OUTPUT"
+}
+
+show_capture_bug_help() {
+    echo ""
+    echo "Known issue detected: Hyprland + wayvnc capture protocol mismatch."
+    echo "Symptom: ext_image_copy_capture_session_v1 ... no formats available"
+    echo ""
+    echo "Quick fixes:"
+    echo "  1) Install patched wayvnc (disable ext-image-copy-capture path), OR"
+    echo "  2) Downgrade Hyprland to a known working version."
+    echo ""
+    echo "Logs:"
+    echo "  $WAYVNC_LOG"
+    echo ""
+}
+
+get_position_offset() {
+    local pos="$1"
+    # Get current main monitor data for vertical centering
+    local current_height
+    local current_y
+    local layout_left
+    local layout_right
+    current_height=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$MAIN_MONITOR']; print(int(round(float(m[0]['height'])/max(float(m[0].get('scale',1.0)),1.0)))) if m else 720" 2>/dev/null)
+    current_y=$(get_main_monitor_y)
+    layout_left=$(get_layout_left_edge)
+    layout_right=$(get_layout_right_edge)
+    [[ -z "$current_height" ]] && current_height=1080
+    [[ -z "$current_y" ]] && current_y=0
+    
+    # Calculate vertical center position
+    # Tablet height is 800, so Y offset = (laptop_height - tablet_height) / 2
+    local tablet_width="${RESOLUTION%x*}"
+    local tablet_height="${RESOLUTION#*x}"
+    local y_offset
+    case "$VERTICAL_ALIGN" in
+        center)
+            y_offset=$(( current_y + (current_height - tablet_height) / 2 ))
+            ;;
+        bottom)
+            y_offset=$(( current_y + current_height - tablet_height ))
+            ;;
+        *)
+            y_offset=$current_y
+            ;;
+    esac
+    [[ "$y_offset" -lt "$current_y" ]] && y_offset="$current_y"
+    
+    if [ "$pos" = "left" ]; then
+        # Left of the full monitor layout to avoid overlap
+        echo "$((layout_left - tablet_width))x${y_offset}"
+    elif [ "$pos" = "top" ]; then
+        # Centered above main monitor
+        local main_x
+        local main_width
+        main_x=$(get_main_monitor_x)
+        main_width=$(get_main_monitor_width)
+        echo "$((main_x + (main_width - tablet_width) / 2))x$((current_y - tablet_height))"
+    elif [ "$pos" = "bottom" ]; then
+        # Centered below main monitor
+        local main_x
+        local main_width
+        main_x=$(get_main_monitor_x)
+        main_width=$(get_main_monitor_width)
+        echo "$((main_x + (main_width - tablet_width) / 2))x$((current_y + current_height))"
+    else
+        # Right of the full monitor layout to avoid overlap
+        echo "${layout_right}x${y_offset}"
+    fi
+}
+
+apply_tablet_workspaces() {
+    local count="${1:-$WORKSPACE_COUNT}"
+    local start="${2:-$WORKSPACE_START}"
+    local i ws
+
+    if ! [[ "$count" =~ ^[0-9]+$ ]] || [ "$count" -lt 1 ]; then
+        return 0
+    fi
+    if ! [[ "$start" =~ ^[0-9]+$ ]] || [ "$start" -lt 1 ]; then
+        return 0
+    fi
+
+    for ((i=0; i<count; i++)); do
+        ws=$((start + i))
+        hyprctl dispatch moveworkspacetomonitor "$ws" "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+    done
+}
+
+set_main_monitor_y() {
+    local y="${1:-0}"
+    # Use preferred mode to avoid refresh-string mismatches (e.g. 120.002Hz panels)
+    hyprctl keyword monitor "$MAIN_MONITOR,preferred,0x${y},auto" >/dev/null 2>&1 || true
+}
+
+apply_top_stack_layout() {
+    local tablet_width="${RESOLUTION%x*}"
+    local tablet_height="${RESOLUTION#*x}"
+    local main_width
+    main_width=$(get_main_monitor_width)
+    local tablet_x=$(( (main_width - tablet_width) / 2 ))
+    [ "$tablet_x" -lt 0 ] && tablet_x=0
+
+    # To emulate a monitor above, move main monitor down and keep tablet at y=0.
+    set_main_monitor_y "$tablet_height"
+    hyprctl keyword monitor "$VIRTUAL_OUTPUT,${RESOLUTION}@${REFRESH},${tablet_x}x0,1" >/dev/null 2>&1 || true
+}
+
+cleanup_existing() {
+    mkdir -p "$STATE_DIR"
+
+    # Kill only the top-screen wayvnc process.
+    pkill -f "$(get_wayvnc_pattern)" 2>/dev/null || true
+    sleep 0.3
+
+    rm -f "$WAYVNC_SOCKET" 2>/dev/null || true
+
+    # Remove existing virtual output if it exists
+    if is_output_created; then
+        hyprctl output remove "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+        sleep 0.3
+    fi
+    
+    # Clean up ADB port forwarding from ALL devices
+    if command -v adb > /dev/null 2>&1; then
+        while read -r dev; do
+            [ -n "$dev" ] || continue
+            adb -s "$dev" reverse --remove tcp:${VNC_PORT} 2>/dev/null || true
+        done < <(adb devices | awk 'NR>1 && $2=="device" {print $1}' 2>/dev/null)
+    fi
+}
+
+start_display() {
+    local POSITION="${1:-$POSITION_DEFAULT}"
+    local CONNECT_MODE="${2:-adb}"
+    local CONNECT_HOST="${3:-127.0.0.1}"
+    local LISTEN_ADDR="0.0.0.0"
+    
+    # Always clean up first to ensure fresh start
+    cleanup_existing
+
+    # Check dependencies
+    check_wayvnc || return 1
+
+    # Check ADB connection and handle multiple devices (ADB mode only)
+    local ADB_DEVICE=""
+    if [ "$CONNECT_MODE" = "adb" ]; then
+        LISTEN_ADDR="127.0.0.1"
+        check_adb || return 1
+        local DEVICE_COUNT
+        DEVICE_COUNT=$(get_adb_device_count)
+
+        if [ "$DEVICE_COUNT" -eq 0 ]; then
+            notify "❌ No tablet connected! Connect USB and enable USB Debugging."
+            echo ""
+            echo "❌ ERROR: No ADB device found!"
+            echo ""
+            echo "To fix:"
+            echo "  1. Connect tablet via USB"
+            echo "  2. Enable Developer Options (tap Build Number 7 times)"
+            echo "  3. Enable USB Debugging"
+            return 1
+        elif [ "$DEVICE_COUNT" -gt 1 ]; then
+            # Multiple devices - let user select
+            echo ""
+            echo "Multiple ADB devices detected:"
+            echo ""
+            adb devices | grep "device$" | nl -w2 -s') '
+            echo ""
+
+            if has_terminal; then
+                read -r -p "Select device number [1-$DEVICE_COUNT]: " device_num
+                ADB_DEVICE=$(adb devices | grep "device$" | sed -n "${device_num}p" | awk '{print $1}')
+            else
+                # Non-interactive - use first USB device (not network)
+                ADB_DEVICE=$(adb devices | grep "device$" | grep -v ":" | head -1 | awk '{print $1}')
+                echo "Auto-selected USB device: $ADB_DEVICE"
+            fi
+
+            if [ -z "$ADB_DEVICE" ]; then
+                notify "❌ Invalid device selection"
+                return 1
+            fi
+
+            echo "Using device: $ADB_DEVICE"
+        else
+            ADB_DEVICE=$(adb devices | grep "device$" | awk '{print $1}')
+        fi
+    fi
+    
+    notify "🚀 Starting Tablet VNC ($POSITION)..."
+    mkdir -p "$STATE_DIR"
+
+    # Create virtual output fresh
+    local pos_offset
+    pos_offset=$(get_position_offset "$POSITION")
+    
+    echo "Debug: Position requested: $POSITION"
+    echo "Debug: Position offset: $pos_offset"
+    
+    # Remove existing output first to ensure clean state
+    hyprctl output remove "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+    sleep 0.5
+    
+    # Create virtual output
+    hyprctl output create headless "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+    sleep 1
+    
+    # Apply monitor config with explicit position
+    local monitor_cmd="$VIRTUAL_OUTPUT,${RESOLUTION}@${REFRESH},${pos_offset},1"
+    echo "Debug: Running: hyprctl keyword monitor $monitor_cmd"
+    
+    if ! hyprctl keyword monitor "$monitor_cmd" >/dev/null 2>&1; then
+        notify "❌ Failed to configure virtual display"
+        return 1
+    fi
+    
+    # Verify position was applied correctly
+    sleep 0.5
+    local actual_pos
+    actual_pos=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$VIRTUAL_OUTPUT']; print(int(m[0]['x'])) if m else 'unknown'" 2>/dev/null)
+    echo "Debug: Actual tablet position: x=$actual_pos"
+    
+    # If position is wrong, try again with direct monitor command
+    local expected_x="${pos_offset%x*}"
+    if [[ "$actual_pos" =~ ^-?[0-9]+$ ]] && [ "$actual_pos" != "$expected_x" ]; then
+        echo "Debug: Position mismatch! Expected $expected_x, got $actual_pos. Retrying..."
+        hyprctl output remove "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+        sleep 0.5
+        hyprctl output create headless "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+        sleep 1
+        hyprctl keyword monitor "$monitor_cmd" >/dev/null 2>&1
+        sleep 0.5
+    fi
+
+    # Hyprland may clamp negative y for headless outputs.
+    # Force "top" by stacking main monitor below tablet.
+    if [ "$POSITION" = "top" ]; then
+        apply_top_stack_layout
+    fi
+
+    # Wait for output to be fully ready for screencopy
+    sleep 1
+    
+    # Start wayvnc
+    local connect_host=""
+    start_wayvnc_with_retry "$CONNECT_MODE" "$CONNECT_HOST" || {
+        notify "❌ wayvnc failed to start"
+        if grep -q "ext_image_copy_capture_session_v1.*no formats available" "$WAYVNC_LOG" 2>/dev/null; then
+            show_capture_bug_help
+        fi
+        return 1
+    }
+
+    # Setup ADB port forwarding only in ADB mode
+    if [ "$CONNECT_MODE" = "adb" ]; then
+        if ! adb -s "$ADB_DEVICE" reverse tcp:${VNC_PORT} tcp:${VNC_PORT} 2>/dev/null; then
+            notify "⚠️ ADB port forward failed. Check USB debugging."
+            pkill wayvnc 2>/dev/null || true
+            return 1
+        fi
+    fi
+
+    local pos_text="LEFT"
+    [ "$POSITION" = "right" ] && pos_text="RIGHT"
+    [ "$POSITION" = "top" ] && pos_text="TOP"
+    [ "$POSITION" = "bottom" ] && pos_text="BOTTOM"
+    if [ "$CONNECT_MODE" = "adb" ]; then
+        connect_host="127.0.0.1"
+    elif [ -n "$WAYVNC_BIND_ADDR" ] && [ "$WAYVNC_BIND_ADDR" != "0.0.0.0" ]; then
+        connect_host="$WAYVNC_BIND_ADDR"
+    else
+        connect_host=$(resolve_connect_host "$CONNECT_HOST")
+    fi
+
+    notify "✅ Tablet VNC running!\nPosition: $pos_text\nConnect AVNC to ${connect_host}:${VNC_PORT}"
+    echo ""
+    echo "========================================"
+    echo "  ✅ Tablet VNC Started!"
+    echo "  Position: $pos_text of main display"
+    echo "  Vertical align: ${VERTICAL_ALIGN^^}"
+    if [ "$CONNECT_MODE" = "adb" ]; then
+        echo "  Mode: ADB reverse"
+    else
+        echo "  Mode: USB tether IP"
+    fi
+    echo "  Tablet workspaces: ${WORKSPACE_COUNT} (from ${WORKSPACE_START})"
+    echo "  Connect AVNC to: ${connect_host}:$VNC_PORT"
+    echo "========================================"
+
+    apply_tablet_workspaces "$WORKSPACE_COUNT" "$WORKSPACE_START"
+    save_profile "$POSITION" "$CONNECT_MODE" "$connect_host"
+}
+
+start_tether() {
+    local POSITION="${1:-$POSITION_DEFAULT}"
+    check_wayvnc || return 1
+
+    local tether_ip
+    tether_ip=$(get_tether_ip)
+    if [ -z "$tether_ip" ]; then
+        notify "❌ No tether IP found. Enable USB tethering on tablet."
+        echo "❌ No USB tether IP detected."
+        echo "Enable USB tethering on your tablet, then retry."
+        return 1
+    fi
+
+    echo "Using USB tether IP: $tether_ip"
+    start_display "$POSITION" "tether" "$tether_ip"
+}
+
+quick_start() {
+    load_profile
+
+    local pos="${POSITION_DEFAULT:-left}"
+    local mode="${CONNECT_MODE_DEFAULT:-tether}"
+    local host="${CONNECT_HOST_DEFAULT:-}"
+    local fallback_host=""
+
+    if [ "$mode" = "adb" ]; then
+        start_display "$pos" "adb" "127.0.0.1"
+    else
+        if have_local_ip "$host"; then
+            start_display "$pos" "tether" "$host"
+        else
+            fallback_host=$(get_tether_ip)
+            if [ -z "$fallback_host" ]; then
+                fallback_host=$(get_network_ip)
+            fi
+
+            if [ -n "$fallback_host" ]; then
+                start_display "$pos" "tether" "$fallback_host"
+            else
+                notify "❌ No saved top host IP. Run: tablet-vnc-top interactive"
+                echo "❌ No saved top host IP found."
+                echo "Run: tablet-vnc-top interactive"
+                return 1
+            fi
+        fi
+    fi
+}
+
+tether_status() {
+    local tether_ip
+    local lan_ip
+    tether_ip=$(get_tether_ip)
+    lan_ip=$(get_network_ip)
+    if [ -n "$tether_ip" ]; then
+        echo "USB tether IP detected: $tether_ip"
+    else
+        echo "USB tether IP: not detected"
+    fi
+    if [ -n "$lan_ip" ]; then
+        echo "LAN IP: $lan_ip"
+    fi
+
+    status_display
+}
+
+stop_display() {
+    if ! is_running && ! is_output_created; then
+        notify "⚠️ Tablet VNC is not running"
+        return 1
+    fi
+
+    notify "🛑 Stopping Tablet VNC..."
+
+    # Stop wayvnc
+    pkill -f "$(get_wayvnc_pattern)" 2>/dev/null || true
+    sleep 0.5
+
+    # Remove virtual output
+    if is_output_created; then
+        hyprctl output remove "$VIRTUAL_OUTPUT" >/dev/null 2>&1 || true
+    fi
+
+    # Restore main monitor to normal top-left origin.
+    set_main_monitor_y 0
+
+    # Remove ADB port forwarding from all devices
+    if command -v adb > /dev/null 2>&1; then
+        while read -r dev; do
+            [ -n "$dev" ] || continue
+            adb -s "$dev" reverse --remove tcp:${VNC_PORT} 2>/dev/null || true
+        done < <(adb devices | awk 'NR>1 && $2=="device" {print $1}')
+    fi
+
+    notify "✅ Tablet VNC stopped"
+}
+
+toggle_display() {
+    if is_running; then
+        stop_display
+    else
+        # Default to TOP when using toggle from keybinding
+        start_display "top"
+    fi
+}
+
+move_display() {
+    local NEW_POS="${1:-right}"
+    
+    if ! is_output_created; then
+        notify "❌ Tablet VNC is not running! Start it first."
+        echo "❌ Tablet VNC is not running!"
+        echo "Run: tablet-vnc start"
+        return 1
+    fi
+    
+    local pos_offset
+    pos_offset=$(get_position_offset "$NEW_POS")
+    
+    # Move the existing display without restarting wayvnc
+    hyprctl keyword monitor "$VIRTUAL_OUTPUT,${RESOLUTION}@${REFRESH},${pos_offset},1" >/dev/null 2>&1 || {
+        notify "❌ Failed to move display"
+        return 1
+    }
+    
+    local pos_text="LEFT"
+    [ "$NEW_POS" = "right" ] && pos_text="RIGHT"
+    
+    notify "📍 Tablet moved to $pos_text"
+    echo "✅ Tablet display moved to $pos_text of main display"
+}
+
+start_interactive() {
+    load_profile
+    echo "┌──────────────────────────────────────────────────────────────┐"
+    echo "│                      TABLET VNC SETUP                       │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    local DEVICE_COUNT
+    DEVICE_COUNT=$(get_adb_device_count)
+    echo "> CHECKING_PERIPHERALS..."
+    echo "> ${DEVICE_COUNT}_ADB_DEVICES_DETECTED"
+    echo ""
+
+    local tether_ip
+    tether_ip=$(get_tether_ip)
+    if [ -n "$tether_ip" ]; then
+        echo "> USB_TETHER_IP: $tether_ip"
+    else
+        echo "> USB_TETHER_IP: NOT_FOUND"
+    fi
+    echo ""
+
+    echo "┌─ DISPLAY_POSITION ───────────────────────────────────────────┐"
+    echo "│ [1] TOP (recommended/default)                               │"
+    echo "│ [2] LEFT                                                    │"
+    echo "│ [3] RIGHT                                                   │"
+    echo "│ [4] BOTTOM                                                  │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "Display position [1/2/3/4]: " response
+    local POSITION="$POSITION_DEFAULT"
+    case "$response" in
+        2) POSITION="left" ;;
+        3) POSITION="right" ;;
+        4) POSITION="bottom" ;;
+        *) POSITION="top" ;;
+    esac
+
+    echo ""
+    echo "┌─ VERTICAL_ALIGN ─────────────────────────────────────────────┐"
+    echo "│ [1] TOP (recommended, easier mouse crossing)                │"
+    echo "│ [2] CENTER                                                   │"
+    echo "│ [3] BOTTOM                                                   │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "Vertical align [1/2/3]: " align_choice
+    case "$align_choice" in
+        2) VERTICAL_ALIGN="center" ;;
+        3) VERTICAL_ALIGN="bottom" ;;
+        *) VERTICAL_ALIGN="top" ;;
+    esac
+
+    echo ""
+    echo "┌─ CONNECTION_MODE ────────────────────────────────────────────┐"
+    echo "│ [1] USB TETHER / MANUAL IP (lowest latency if tethered)     │"
+    echo "│ [2] ADB REVERSE (compatible fallback)                       │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "Connection mode [1/2]: " mode_choice
+    local CONNECT_MODE="$CONNECT_MODE_DEFAULT"
+    [ "$mode_choice" = "2" ] && CONNECT_MODE="adb"
+    [ "$mode_choice" = "1" ] && CONNECT_MODE="tether"
+
+    local CONNECT_HOST="127.0.0.1"
+    if [ "$CONNECT_MODE" = "tether" ]; then
+        echo ""
+        echo "┌─ HOST_IP ────────────────────────────────────────────────────┐"
+        echo "│ [1] AUTO-DETECT (default)                                   │"
+        echo "│ [2] ENTER MANUALLY                                          │"
+        echo "└──────────────────────────────────────────────────────────────┘"
+        echo ""
+        read -r -p "Tether IP mode [1/2]: " ip_mode
+        if [ "$ip_mode" = "2" ]; then
+            read -r -p "Enter laptop IP for AVNC: " CONNECT_HOST
+        else
+            CONNECT_HOST="${CONNECT_HOST_DEFAULT:-$tether_ip}"
+            [ -z "$CONNECT_HOST" ] && CONNECT_HOST="$tether_ip"
+        fi
+        if [ -z "$CONNECT_HOST" ]; then
+            echo "❌ No tether IP available. Enable USB tethering or enter IP manually."
+            return 1
+        fi
+    fi
+
+    echo ""
+    echo "┌─ REFRESH_RATE ───────────────────────────────────────────────┐"
+    echo "│ [1] 60 Hz (default)                                         │"
+    echo "│ [2] 30 Hz                                                   │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "Refresh [1/2]: " refresh_choice
+
+    case "$refresh_choice" in
+        2) REFRESH="30" ;;
+        *) REFRESH="60" ;;
+    esac
+
+    echo ""
+    echo "┌─ VNC_STREAM ─────────────────────────────────────────────────┐"
+    echo "│ [1] 30 FPS (recommended for stability/latency)              │"
+    echo "│ [2] 60 FPS (smoother, heavier)                              │"
+    echo "└──────────────────────────────────────────────────────────────┘"
+    echo ""
+    read -r -p "FPS [1/2]: " fps_choice
+
+    case "$fps_choice" in
+        2) FPS="60" ;;
+        *) FPS="30" ;;
+    esac
+
+    echo ""
+    read -r -p "Tablet workspaces count [default ${WORKSPACE_COUNT}]: " ws_count
+    echo ""
+    read -r -p "Tablet workspace start [default ${WORKSPACE_START}]: " ws_start
+    ws_count=$(sanitize_int "$ws_count")
+    ws_start=$(sanitize_int "$ws_start")
+    [[ -n "$ws_count" ]] && WORKSPACE_COUNT="$ws_count"
+    [[ -n "$ws_start" ]] && WORKSPACE_START="$ws_start"
+
+    echo ""
+    echo "> INITIATING_HYPRCTL..."
+    if [ "$CONNECT_MODE" = "adb" ]; then
+        start_display "$POSITION" "adb" "127.0.0.1"
+    else
+        start_display "$POSITION" "tether" "$CONNECT_HOST"
+    fi
+}
+
+status_display() {
+    local output_state
+    output_state=$(detect_output_state)
+
+    if [ "$output_state" = "running" ]; then
+        local pos_text="LEFT"
+        local current_main_x
+        local current_main_y
+        local current_main_width
+        local current_main_height
+        current_main_x=$(get_main_monitor_x)
+        current_main_y=$(get_main_monitor_y)
+        current_main_width=$(get_main_monitor_width)
+        current_main_height=$(get_main_monitor_height)
+        local tablet_x
+        local tablet_y
+        tablet_x=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$VIRTUAL_OUTPUT']; print(int(m[0]['x'])) if m else 0" 2>/dev/null)
+        tablet_y=$(hyprctl monitors -j 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); m=[m for m in d if m['name']=='$VIRTUAL_OUTPUT']; print(int(m[0]['y'])) if m else 0" 2>/dev/null)
+
+        if [ "$tablet_y" -lt "$current_main_y" ]; then
+            pos_text="TOP"
+        elif [ "$tablet_y" -ge "$((current_main_y + current_main_height))" ]; then
+            pos_text="BOTTOM"
+        elif [ "$tablet_x" -ge "$((current_main_x + current_main_width))" ]; then
+            pos_text="RIGHT"
+        fi
+
+        echo "✅ Tablet VNC is RUNNING"
+        echo "   Output: $VIRTUAL_OUTPUT"
+        echo "   Resolution: $RESOLUTION@${REFRESH}"
+        echo "   Position: $pos_text of main display"
+        echo "   FPS: $FPS"
+        echo "   Port: $VNC_PORT"
+        
+        local dev_count
+        dev_count=$(get_adb_device_count)
+        if [ "$dev_count" -gt 0 ]; then
+            echo "   ADB: $dev_count device(s) connected"
+        else
+            echo "   ADB: Not connected"
+        fi
+    elif [ "$output_state" = "stale-output" ]; then
+        echo "⚠️ Tablet VNC has STALE OUTPUT"
+        echo "   Output: $VIRTUAL_OUTPUT"
+        echo "   wayvnc: not running"
+        echo "   Fix: run 'tablet-vnc-top stop' to clean it up"
+    elif [ "$output_state" = "server-only" ]; then
+        echo "⚠️ Tablet VNC is PARTIALLY BROKEN"
+        echo "   wayvnc is running but $VIRTUAL_OUTPUT is missing"
+        echo "   Fix: run 'tablet-vnc-top stop' then start again"
+    else
+        echo "❌ Tablet VNC is STOPPED"
+    fi
+}
+
+show_logs() {
+    if [ -f "$WAYVNC_LOG" ]; then
+        tail -n 120 "$WAYVNC_LOG"
+    else
+        echo "No wayvnc log found yet: $WAYVNC_LOG"
+    fi
+}
+
+doctor_display() {
+    local hv wv output_state saved_host tether_ip lan_ip
+    hv=$(hyprctl version 2>/dev/null | awk 'NR==1{print $2}')
+    wv=$(wayvnc --version 2>/dev/null | awk '/^wayvnc:/{print $2}')
+    output_state=$(detect_output_state)
+    saved_host="${CONNECT_HOST_DEFAULT:-}"
+    tether_ip=$(get_tether_ip)
+    lan_ip=$(get_network_ip)
+    echo "Tablet VNC doctor"
+    echo "  Hyprland: ${hv:-unknown}"
+    echo "  wayvnc:   ${wv:-unknown}"
+    echo "  Output state: $output_state"
+    echo "  Tether IP: ${tether_ip:-not detected}"
+    echo "  LAN IP: ${lan_ip:-not detected}"
+    echo "  Saved host: ${saved_host:-none}"
+    echo "  Log file: $WAYVNC_LOG"
+
+    if grep -q "ext_image_copy_capture_session_v1.*no formats available" "$WAYVNC_LOG" 2>/dev/null; then
+        echo ""
+        echo "Detected capture bug in logs."
+        show_capture_bug_help
+    else
+        echo ""
+        echo "No capture error signature found in current log."
+    fi
+}
+
+show_help() {
+    cat << 'EOF'
+Tablet VNC Top - Extended Display for Lenovo Tab 4 10
+
+Usage: tablet-vnc-top [command]
+
+Commands:
+    start              Start with default position (top)
+    start left         Start with tablet on LEFT
+    start right        Start with tablet on RIGHT
+    start top          Start with tablet on TOP
+    start bottom       Start with tablet on BOTTOM
+    tether             Start in USB tether mode (top)
+    tether start left  Start in USB tether mode (LEFT)
+    tether start right Start in USB tether mode (RIGHT)
+    tether start top   Start in USB tether mode (TOP)
+    tether start bottom Start in USB tether mode (BOTTOM)
+    tether stop        Stop tablet VNC
+    tether status      Show status + tether IP
+    workspaces C [S]   Map C tablet workspaces, starting at S (default S=7)
+    quickstart         Start using saved last-used profile (for hotkey)
+    stop               Stop the virtual display
+    toggle             Toggle on/off (default: top position)
+    move left          Move running tablet to LEFT (no restart)
+    move right         Move running tablet to RIGHT (no restart)
+    status             Show current status
+    logs               Show recent wayvnc logs
+    doctor             Show environment + known-issue diagnostics
+    interactive        Start with prompts (terminal only)
+    help               Show this help
+
+Keybindings:
+    Super + F10              Toggle on/off (uses TOP position)
+    Super + Shift + F10      Stop tablet VNC
+
+Examples:
+    tablet-vnc-top start     # Start with tablet on TOP
+    tablet-vnc-top move left # Move tablet to LEFT side (while running!)
+    tablet-vnc-top move right # Move tablet back to RIGHT side
+
+Setup:
+    1. Enable Developer Options on tablet
+    2. Enable USB Debugging  
+    3. Install bVNC from Play Store
+    4. Connect USB cable
+    5. Start tablet-vnc-top
+    6. In AVNC (ADB mode): Connect to 127.0.0.1:5901
+    7. In AVNC (tether/manual IP mode): Connect to laptop-ip:5901
+EOF
+}
+
+set_workspace_span() {
+    local count start
+    count=$(sanitize_int "$1")
+    start=$(sanitize_int "${2:-7}")
+
+    if ! [[ "$count" =~ ^[0-9]+$ ]] || [ "$count" -lt 1 ]; then
+        echo "Usage: tablet-vnc workspaces <count> [start]"
+        return 1
+    fi
+    if ! [[ "$start" =~ ^[0-9]+$ ]] || [ "$start" -lt 1 ]; then
+        echo "Usage: tablet-vnc workspaces <count> [start]"
+        return 1
+    fi
+
+    WORKSPACE_COUNT="$count"
+    WORKSPACE_START="$start"
+    apply_tablet_workspaces "$WORKSPACE_COUNT" "$WORKSPACE_START"
+    echo "✅ Tablet workspaces mapped: ${WORKSPACE_COUNT} starting at ${WORKSPACE_START}"
+}
+
+# Main
+load_profile
+case "${1:-toggle}" in
+    start)
+        start_display "${2:-top}"
+        ;;
+    left)
+        start_display "left"
+        ;;
+    top)
+        start_display "top"
+        ;;
+    bottom)
+        start_display "bottom"
+        ;;
+    right)
+        start_display "right"
+        ;;
+    move)
+        move_display "${2:-right}"
+        ;;
+    interactive)
+        start_interactive
+        ;;
+    tether)
+        case "${2:-start}" in
+            start)
+                start_tether "${3:-top}"
+                ;;
+            left)
+                start_tether "left"
+                ;;
+            top)
+                start_tether "top"
+                ;;
+            bottom)
+                start_tether "bottom"
+                ;;
+            right)
+                start_tether "right"
+                ;;
+            stop)
+                stop_display
+                ;;
+            status)
+                tether_status
+                ;;
+            *)
+                echo "Unknown tether command: $2"
+                echo "Use: tablet-vnc tether [start|left|right|stop|status]"
+                exit 1
+                ;;
+        esac
+        ;;
+    stop)
+        stop_display
+        ;;
+    toggle)
+        toggle_display
+        ;;
+    status)
+        status_display
+        ;;
+    logs)
+        show_logs
+        ;;
+    workspaces)
+        set_workspace_span "${2:-3}" "${3:-7}"
+        ;;
+    quickstart)
+        quick_start
+        ;;
+    doctor)
+        doctor_display
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac
