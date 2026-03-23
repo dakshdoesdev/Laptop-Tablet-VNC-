@@ -1,0 +1,30 @@
+[
+  {
+    "type": "input",
+    "aria": "",
+    "placeholder": "",
+    "name": "",
+    "value": "Untitled notebook"
+  },
+  {
+    "type": "textarea",
+    "aria": "Discover sources based on the inputted query",
+    "placeholder": "Search the web for new sources",
+    "name": "",
+    "value": ""
+  },
+  {
+    "type": "textarea",
+    "aria": "Query box",
+    "placeholder": "Upload a source to get started",
+    "name": "",
+    "value": ""
+  },
+  {
+    "type": "textarea",
+    "aria": "Discover sources based on the inputted query",
+    "placeholder": "Search the web for new sources",
+    "name": "",
+    "value": ""
+  }
+]

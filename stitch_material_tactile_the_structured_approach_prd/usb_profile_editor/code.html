@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>USB Profile Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13d6ec",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#09090B",
+                        "surface": "#18181B",
+                        "surface-hover": "#27272A",
+                        "usb": "#FFB800",
+                        "typec": "#FF007F",
+                        "success": "#39FF14",
+                        "error": "#FF3333",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "bento": "16px",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'bento': '0 8px 32px rgba(0,0,0,0.4)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .bento-card {
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            border: 2px solid rgba(255,255,255,0.04);
+        }
+
+        /* Custom Slider Styling to match constraints */
+        input[type=range].chunky-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+
+        input[type=range].chunky-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 64px;
+            width: 48px;
+            border-radius: 9999px;
+            background: #FFB800;
+            cursor: pointer;
+            margin-top: -16px; /* (Track height 32px / 2) - (Thumb height 64px / 2) */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            transition: transform 150ms ease;
+        }
+
+        input[type=range].chunky-slider::-webkit-slider-thumb:active {
+            transform: scale(0.95);
+        }
+
+        input[type=range].chunky-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 32px;
+            cursor: pointer;
+            background: #27272A;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        input[type=range].chunky-slider:focus {
+            outline: none;
+        }
+        
+        /* Specific track coloring simulation for demonstration */
+        .slider-track-fill {
+            position: absolute;
+            height: 32px;
+            background: #FFB800;
+            opacity: 0.3;
+            border-radius: 16px;
+            pointer-events: none;
+            top: 0;
+            left: 0;
+        }
+
+        .toggle-segment {
+            transition: all 150ms ease;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-zinc-100 font-body min-h-screen flex selection:bg-usb/30">
+<!-- Excluded SideNavBar because this is a Focused View (Editor flow) -->
+<main class="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+<!-- Header (Back-to-Main Exception) -->
+<header class="flex items-center gap-4 p-6 shrink-0">
+<button class="w-12 h-12 rounded-full bg-surface hover:bg-surface-hover flex items-center justify-center transition-colors bento-card">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div>
+<h1 class="font-display text-2xl font-bold tracking-tight">USB Profile Editor</h1>
+<div class="flex items-center gap-2 mt-1">
+<span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+<span class="text-sm font-mono text-zinc-400">Tablet_01 connected</span>
+</div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-6 pb-32">
+<div class="max-w-3xl mx-auto space-y-8">
+<!-- Resolution Control -->
+<section class="bg-surface rounded-bento p-8 bento-card">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-display text-xl font-semibold">Resolution</h2>
+<p class="text-zinc-400 text-sm mt-1">Internal render target resolution</p>
+</div>
+<div class="bg-surface-hover px-4 py-2 rounded-lg border border-white/5">
+<span class="font-mono text-xl text-usb font-medium">1080p</span>
+</div>
+</div>
+<div class="relative pt-4 pb-8">
+<div class="flex justify-between w-full px-6 absolute top-0 w-full text-xs font-mono text-zinc-500 pointer-events-none z-10">
+<span>720p</span>
+<span>1080p</span>
+<span>1440p</span>
+</div>
+<div class="relative w-full h-8 mt-6">
+<div class="slider-track-fill w-1/2"></div>
+<input class="chunky-slider absolute top-0 left-0 w-full" max="2" min="0" step="1" type="range" value="1"/>
+</div>
+</div>
+</section>
+<!-- Framerate Control -->
+<section class="bg-surface rounded-bento p-8 bento-card">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-display text-xl font-semibold">Framerate Target</h2>
+<p class="text-zinc-400 text-sm mt-1">Maximum VNC output refresh rate</p>
+</div>
+<div class="bg-surface-hover px-4 py-2 rounded-lg border border-white/5">
+<span class="font-mono text-xl text-usb font-medium">60 FPS</span>
+</div>
+</div>
+<div class="flex bg-surface-hover p-2 rounded-xl border border-white/5 relative h-[80px]">
+<!-- Active Background Pill -->
+<div class="absolute inset-y-2 right-2 left-1/2 rounded-lg bg-usb shadow-[0_4px_12px_rgba(255,184,0,0.3)] toggle-segment z-0"></div>
+<button class="flex-1 relative z-10 font-display text-lg font-bold text-zinc-400 flex items-center justify-center rounded-lg toggle-segment">
+                            30 FPS
+                        </button>
+<button class="flex-1 relative z-10 font-display text-lg font-bold text-background-dark flex items-center justify-center rounded-lg toggle-segment">
+                            60 FPS
+                        </button>
+</div>
+</section>
+<!-- Compression Control -->
+<section class="bg-surface rounded-bento p-8 bento-card">
+<div class="flex items-center justify-between mb-8">
+<div>
+<h2 class="font-display text-xl font-semibold">JPEG Compression</h2>
+<p class="text-zinc-400 text-sm mt-1">Lower values increase bandwidth usage</p>
+</div>
+<div class="bg-surface-hover px-4 py-2 rounded-lg border border-white/5">
+<span class="font-mono text-xl text-usb font-medium">75%</span>
+</div>
+</div>
+<div class="relative pt-4 pb-4">
+<div class="relative w-full h-8 mt-2">
+<div class="slider-track-fill w-[75%]"></div>
+<input class="chunky-slider absolute top-0 left-0 w-full" max="100" min="10" type="range" value="75"/>
+</div>
+</div>
+</section>
+<!-- Status Feedback -->
+<div class="flex items-start gap-4 p-6 bg-surface-hover/50 rounded-bento border border-usb/20">
+<div class="text-usb">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">info</span>
+</div>
+<div>
+<h3 class="font-display font-medium text-zinc-200">Changes applied instantly</h3>
+<p class="text-sm text-zinc-400 mt-1">Modifying these values while the tablet is active may cause temporary artifacting.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

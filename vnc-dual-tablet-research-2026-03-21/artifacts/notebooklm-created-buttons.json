@@ -1,0 +1,202 @@
+[
+  {
+    "text": "",
+    "aria": "Google apps",
+    "title": ""
+  },
+  {
+    "text": "",
+    "aria": "Google Account: Daksh Verma  \n(1071hskad@gmail.com)",
+    "title": ""
+  },
+  {
+    "text": "add\nCreate notebook",
+    "aria": "Create notebook",
+    "title": ""
+  },
+  {
+    "text": "trending_up\nAnalytics",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "share\nShare",
+    "aria": "Share notebook",
+    "title": ""
+  },
+  {
+    "text": "settings\nSettings",
+    "aria": "Settings",
+    "title": ""
+  },
+  {
+    "text": "dock_to_right",
+    "aria": "Collapse source panel",
+    "title": ""
+  },
+  {
+    "text": "add\nAdd sources",
+    "aria": "Add source",
+    "title": ""
+  },
+  {
+    "text": "language\nWeb\nkeyboard_arrow_down",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "search_spark\nFast Research\nkeyboard_arrow_down",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "arrow_forward",
+    "aria": "Submit",
+    "title": ""
+  },
+  {
+    "text": "",
+    "aria": "notebooklm-source-pack.md",
+    "title": ""
+  },
+  {
+    "text": "markdown",
+    "aria": "More",
+    "title": ""
+  },
+  {
+    "text": "tune",
+    "aria": "Configure notebook",
+    "title": ""
+  },
+  {
+    "text": "more_vert",
+    "aria": "Chat options",
+    "title": ""
+  },
+  {
+    "text": "keep\nSave to note",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "copy_all",
+    "aria": "Copy summary",
+    "title": ""
+  },
+  {
+    "text": "thumb_up",
+    "aria": "Good summary",
+    "title": ""
+  },
+  {
+    "text": "thumb_down",
+    "aria": "Bad summary",
+    "title": ""
+  },
+  {
+    "text": "How can per-tablet profiles improve the current Arch Linux workflow?",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "What configurations reduce latency for USB and network tablet connections?",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "How should a graphical launcher handle ADB and manual IP switching?",
+    "aria": "",
+    "title": ""
+  },
+  {
+    "text": "arrow_forward",
+    "aria": "Submit",
+    "title": ""
+  },
+  {
+    "text": "dock_to_left",
+    "aria": "Collapse studio panel",
+    "title": ""
+  },
+  {
+    "text": "audio_magic_eraser\nAudio Overview\nchevron_forward",
+    "aria": "Audio Overview",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Audio Overview",
+    "title": ""
+  },
+  {
+    "text": "tablet\nSlide Deck\nchevron_forward",
+    "aria": "Slide Deck",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Slide Deck",
+    "title": ""
+  },
+  {
+    "text": "subscriptions\nVideo Overview\nchevron_forward",
+    "aria": "Video Overview",
+    "title": ""
+  },
+  {
+    "text": "flowchart\nMind Map",
+    "aria": "Mind Map",
+    "title": ""
+  },
+  {
+    "text": "auto_tab_group\nReports\nchevron_forward",
+    "aria": "Reports",
+    "title": ""
+  },
+  {
+    "text": "cards_star\nFlashcards\nchevron_forward",
+    "aria": "Flashcards",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Flashcards",
+    "title": ""
+  },
+  {
+    "text": "quiz\nQuiz\nchevron_forward",
+    "aria": "Quiz",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Quiz",
+    "title": ""
+  },
+  {
+    "text": "stacked_bar_chart\nInfographic\nchevron_forward",
+    "aria": "Infographic",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Infographic",
+    "title": ""
+  },
+  {
+    "text": "table_view\nData Table\nchevron_forward",
+    "aria": "Data Table",
+    "title": ""
+  },
+  {
+    "text": "chevron_forward",
+    "aria": "Customize Data Table",
+    "title": ""
+  },
+  {
+    "text": "sticky_note_2\nAdd note",
+    "aria": "",
+    "title": ""
+  }
+]

@@ -1,0 +1,58 @@
+Docs
+My Projects
+Shared with me
+Last 30 days
+
+Run Tracker & Stats
+
+Mar 6, 2026
+
+Street Heat - PRD
+
+Mar 4, 2026
+
+Piano Performance Image
+
+Mar 3, 2026
+Examples
+
+Indoor Plant Care Dashboard
+
+May 19, 2025
+
+Alps skiing guide
+
+May 19, 2025
+
+Ceramic & Pottery Marketplace
+
+May 19, 2025
+
+Board game club planner
+
+May 16, 2025
+
+Homemade Pizza Cooking Elite Class
+
+May 19, 2025
+
+Personal photo library
+
+May 17, 2025
+
+Employee Feedback Dashboard
+
+May 19, 2025
+
+Meet the new Stitch
+
+Welcome to Stitch..
+A trip packing checklist app that suggests what to pack based on your destination's weather and trip type
+Browse page for a mobile app that helps you find the best local coffee roasters near you, with tasting notes and roast profiles using warm earthy tones
+Mobile-responsive ecommerce home page for a bird watching gear store
+
+Design a dark desktop control panel called Tablet VNC for Linux power users. Create a main dashboard with two profile cards: USB Tablet and Type-C Tablet. Each card should show mode, host or IP, port, refresh, fps, status, and actions for Start Stop Edit. Add a secondary settings screen with connection mode, host IP, port, resolution, refresh, fps, output position, workspace count, workspace start, and vertical alignment. Add a diagnostics drawer for output name, bind address, transport mode, wayvnc version, and warnings. Use graphite and muted gray panels with crisp borders and orange accents for active state. Make it feel sharp, technical, compact, and desktop-first.
+
+App
+Web
+3.0 Flash

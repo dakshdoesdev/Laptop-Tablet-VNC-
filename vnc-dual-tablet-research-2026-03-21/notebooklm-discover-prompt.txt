@@ -1,0 +1,23 @@
+Research the best architecture and UX for a Hyprland + wayvnc dual-tablet display manager on Arch Linux.
+
+Context:
+- Host uses Hyprland on Wayland.
+- Virtual monitor is created with `hyprctl output create headless`.
+- `wayvnc` exposes the headless output as a VNC display.
+- Two tablets must be supported:
+  - one tablet can use ADB / USB style workflow
+  - the other tablet does not use ADB and must use a manual host/IP path
+- Goal is low perceived latency, clean switching, and a simple graphical launcher/settings UI.
+
+Focus the research on:
+- official wayvnc docs and runtime capabilities
+- Hyprland headless output behavior
+- best settings for low latency on local network / USB tether style workflows
+- good UI patterns for device-profile switching in a compact desktop utility
+- tradeoffs between one global config vs named per-device profiles
+
+Output I want:
+- recommended architecture
+- best low-latency defaults
+- UI recommendations
+- likely failure cases and how the UI should explain them

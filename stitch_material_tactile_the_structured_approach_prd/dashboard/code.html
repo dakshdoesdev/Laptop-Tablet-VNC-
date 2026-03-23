@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - VNC Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13d6ec",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#09090b",
+                        "surface": "#18181b",
+                        "surface-highlight": "#27272a",
+                        "usb": "#ffb800",
+                        "typec": "#ff007f",
+                        "success": "#39ff14",
+                        "error": "#ff3333",
+                        "muted": "#a1a1aa"
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'bento': '0 8px 32px rgba(0, 0, 0, 0.4)',
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .bento-glass {
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+        }
+        
+        .nav-item {
+            min-height: 64px;
+        }
+
+        @keyframes pulse-success {
+            0% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(57, 255, 20, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(57, 255, 20, 0); }
+        }
+
+        @keyframes pulse-primary {
+            0% { box-shadow: 0 0 0 0 rgba(19, 214, 236, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(19, 214, 236, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(19, 214, 236, 0); }
+        }
+
+        .dot-success {
+            animation: pulse-success 2s infinite;
+        }
+        
+        .dot-primary {
+            animation: pulse-primary 2s infinite;
+        }
+        
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #09090b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #27272a; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1aa; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-body min-h-screen flex overflow-hidden">
+<!-- Navigation Pillar -->
+<aside class="w-[250px] bg-background-dark flex-shrink-0 flex flex-col border-r border-surface-highlight/50 z-10 hidden md:flex h-screen">
+<div class="p-6 flex flex-col gap-1">
+<h1 class="text-white text-xl font-bold font-display tracking-tight">VNC Manager</h1>
+<p class="text-muted text-sm font-medium">Dual Tablet Control</p>
+</div>
+<nav class="flex-1 px-4 py-2 flex flex-col gap-2 overflow-y-auto">
+<a class="nav-item flex items-center gap-4 px-4 rounded-xl bg-surface-highlight border-l-4 border-primary text-white transition-colors" href="#">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">mobile_layout</span>
+<span class="font-display font-semibold text-[15px]">Dashboard</span>
+</a>
+<a class="nav-item flex items-center gap-4 px-4 rounded-xl text-muted hover:bg-surface hover:text-white transition-colors border-l-4 border-transparent" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">map</span>
+<span class="font-display font-semibold text-[15px]">Spatial Mapper</span>
+</a>
+<a class="nav-item flex items-center gap-4 px-4 rounded-xl text-muted hover:bg-surface hover:text-white transition-colors border-l-4 border-transparent" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">usb</span>
+<span class="font-display font-semibold text-[15px]">USB Profile</span>
+</a>
+<a class="nav-item flex items-center gap-4 px-4 rounded-xl text-muted hover:bg-surface hover:text-white transition-colors border-l-4 border-transparent" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">usb</span>
+<span class="font-display font-semibold text-[15px]">Type-C Profile</span>
+</a>
+<a class="nav-item flex items-center gap-4 px-4 rounded-xl text-muted hover:bg-surface hover:text-white transition-colors border-l-4 border-transparent" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">multiline_chart</span>
+<span class="font-display font-semibold text-[15px]">Diagnostics</span>
+</a>
+</nav>
+<div class="p-6 mt-auto">
+<div class="flex items-center gap-3 bg-surface p-4 rounded-xl bento-glass shadow-bento">
+<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">terminal</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-muted font-mono">Daemon Status</span>
+<span class="text-sm font-bold text-success font-mono">Running</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto">
+<!-- Header (Mobile mostly, but keeps structure) -->
+<header class="p-8 pb-4 flex items-center justify-between sticky top-0 bg-background-dark/80 backdrop-blur-md z-20">
+<div>
+<h2 class="text-3xl font-bold font-display text-white tracking-tight">Dashboard</h2>
+<p class="text-muted mt-1">System overview and connection status</p>
+</div>
+<button class="md:hidden p-3 rounded-lg bg-surface text-white">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</header>
+<!-- Bento Grid -->
+<div class="p-8 pt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 auto-rows-[minmax(180px,_auto)]">
+<!-- Connection Widget (2x2) -->
+<div class="col-span-1 md:col-span-2 xl:col-span-2 row-span-2 bg-surface rounded-[16px] p-6 shadow-bento bento-glass flex flex-col gap-6 relative overflow-hidden group hover:bg-surface-highlight transition-colors cursor-pointer">
+<div class="flex justify-between items-start">
+<h3 class="text-xl font-display font-bold text-white">Active Connections</h3>
+<span class="material-symbols-outlined text-muted group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6 flex-1">
+<!-- USB Tablet -->
+<div class="bg-background-dark rounded-xl p-5 border border-surface-highlight flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-usb/5 rounded-full blur-3xl -mr-10 -mt-10"></div>
+<div class="flex items-center justify-between mb-8 relative z-10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-usb" style="font-variation-settings: 'FILL' 1;">usb</span>
+<span class="font-display font-semibold text-white">Wacom Cintiq</span>
+</div>
+<!-- Status Pill -->
+<div class="h-8 px-3 bg-surface rounded-full flex items-center gap-2 border border-surface-highlight">
+<div class="w-2.5 h-2.5 rounded-full bg-success dot-success"></div>
+<span class="text-xs font-mono font-medium text-white">Connected</span>
+</div>
+</div>
+<div class="flex justify-between items-end relative z-10">
+<div>
+<p class="text-sm text-muted mb-1">Interface</p>
+<p class="font-mono text-usb font-medium">USB 3.0</p>
+</div>
+<div class="text-right">
+<p class="text-sm text-muted mb-1">Resolution</p>
+<p class="font-mono text-white">1920x1080@60Hz</p>
+</div>
+</div>
+</div>
+<!-- Type-C Tablet -->
+<div class="bg-background-dark rounded-xl p-5 border border-surface-highlight flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-typec/5 rounded-full blur-3xl -mr-10 -mt-10"></div>
+<div class="flex items-center justify-between mb-8 relative z-10">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-typec" style="font-variation-settings: 'FILL' 1;">cable</span>
+<span class="font-display font-semibold text-white">iPad Pro</span>
+</div>
+<!-- Status Pill -->
+<div class="h-8 px-3 bg-surface rounded-full flex items-center gap-2 border border-surface-highlight">
+<div class="w-2.5 h-2.5 rounded-full bg-primary dot-primary"></div>
+<span class="text-xs font-mono font-medium text-white">Active</span>
+</div>
+</div>
+<div class="flex justify-between items-end relative z-10">
+<div>
+<p class="text-sm text-muted mb-1">Interface</p>
+<p class="font-mono text-typec font-medium">Type-C DP Alt</p>
+</div>
+<div class="text-right">
+<p class="text-sm text-muted mb-1">Resolution</p>
+<p class="font-mono text-white">2732x2048@120Hz</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Spatial Map Preview -->
+<div class="col-span-1 bg-surface rounded-[16px] p-6 shadow-bento bento-glass flex flex-col group hover:bg-surface-highlight transition-colors cursor-pointer relative overflow-hidden">
+<div class="flex justify-between items-start mb-4 relative z-10">
+<h3 class="text-lg font-display font-bold text-white">Spatial Map</h3>
+<span class="material-symbols-outlined text-muted group-hover:text-primary transition-colors">open_in_new</span>
+</div>
+<div class="flex-1 bg-background-dark rounded-xl border border-surface-highlight relative flex items-center justify-center p-4">
+<!-- Abstract representation of spatial map -->
+<div class="relative w-full h-full max-w-[200px] flex items-center justify-center">
+<!-- Main Monitor -->
+<div class="w-24 h-16 bg-surface-highlight rounded border border-muted/30 flex items-center justify-center absolute z-10 shadow-lg">
+<span class="text-[10px] font-mono text-muted">DP-1</span>
+</div>
+<!-- USB Tablet Position -->
+<div class="w-16 h-10 bg-usb/20 border border-usb/50 rounded flex items-center justify-center absolute -left-4 top-8 shadow-lg backdrop-blur-sm">
+<span class="text-[8px] font-mono text-usb">USB</span>
+</div>
+<!-- Type-C Tablet Position -->
+<div class="w-20 h-14 bg-typec/20 border border-typec/50 rounded flex items-center justify-center absolute right-0 -bottom-2 shadow-lg backdrop-blur-sm">
+<span class="text-[8px] font-mono text-typec">Type-C</span>
+</div>
+<!-- Grid pattern overlay -->
+<div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 2px 2px, white 1px, transparent 0); background-size: 16px 16px;"></div>
+</div>
+</div>
+</div>
+<!-- Latency Sparkline (2x1) -->
+<div class="col-span-1 md:col-span-2 xl:col-span-2 bg-surface rounded-[16px] p-6 shadow-bento bento-glass flex flex-col relative group hover:bg-surface-highlight transition-colors cursor-pointer">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-3">
+<h3 class="text-lg font-display font-bold text-white">Network Latency</h3>
+<div class="px-2 py-0.5 rounded bg-success/20 border border-success/30">
+<span class="text-xs font-mono text-success">Healthy</span>
+</div>
+</div>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-mono font-bold text-white">12</span>
+<span class="text-sm font-mono text-muted">ms</span>
+</div>
+</div>
+<div class="flex-1 w-full bg-background-dark rounded-xl border border-surface-highlight relative overflow-hidden flex items-end">
+<!-- SVG Sparkline representing 60s ping -->
+<svg class="w-full h-full absolute inset-0 preserve-aspect-ratio-none" preserveaspectratio="none" viewbox="0 0 100 40">
+<!-- Grid lines -->
+<line stroke="#27272a" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="100" y1="10" y2="10"></line>
+<line stroke="#27272a" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="100" y1="20" y2="20"></line>
+<line stroke="#27272a" stroke-dasharray="2,2" stroke-width="0.5" x1="0" x2="100" y1="30" y2="30"></line>
+<!-- Data line -->
+<path d="M0,35 L5,32 L10,34 L15,28 L20,30 L25,35 L30,33 L35,25 L40,28 L45,30 L50,22 L55,25 L60,20 L65,24 L70,18 L75,15 L80,20 L85,12 L90,18 L95,14 L100,10" fill="none" stroke="#13d6ec" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+<!-- Gradient fill under line -->
+<path d="M0,40 L0,35 L5,32 L10,34 L15,28 L20,30 L25,35 L30,33 L35,25 L40,28 L45,30 L50,22 L55,25 L60,20 L65,24 L70,18 L75,15 L80,20 L85,12 L90,18 L95,14 L100,10 L100,40 Z" fill="url(#sparkline-gradient)" opacity="0.2"></path>
+<defs>
+<lineargradient id="sparkline-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#13d6ec"></stop>
+<stop offset="100%" stop-color="#13d6ec" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+</svg>
+<!-- X-axis labels -->
+<div class="absolute bottom-2 left-2 right-2 flex justify-between px-1">
+<span class="text-[10px] font-mono text-muted/50">-60s</span>
+<span class="text-[10px] font-mono text-muted/50">Now</span>
+</div>
+</div>
+</div>
+<!-- Quick Actions -->
+<div class="col-span-1 bg-surface rounded-[16px] p-6 shadow-bento bento-glass flex flex-col gap-4">
+<h3 class="text-lg font-display font-bold text-white mb-2">Quick Actions</h3>
+<button class="nav-item w-full bg-primary text-background-dark font-display font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors shadow-[0_0_15px_rgba(19,214,236,0.3)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">refresh</span>
+                    Restart VNC Server
+                </button>
+<button class="nav-item w-full bg-surface-highlight text-white border border-white/10 font-display font-semibold rounded-xl flex items-center justify-center gap-2 hover:bg-surface-highlight/80 transition-colors">
+<span class="material-symbols-outlined">settings_backup_restore</span>
+                    Reset Spatial Map
+                </button>
+</div>
+</div>
+</main>
+</body></html>

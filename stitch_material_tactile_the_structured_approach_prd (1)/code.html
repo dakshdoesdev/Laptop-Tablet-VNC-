@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Spatial Matrix - Hyprland VNC</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#0df2c8",
+                        "background-light": "#f5f8f8",
+                        "background-dark": "#090909",
+                        "surface": "#1C1C1E",
+                        "surface-border": "#2C2C2E",
+                        "text-main": "#E0E4F5",
+                        "muted": "#6B728E",
+                        "accent": "#FF3B30",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["Space Grotesk", "monospace"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.5rem",
+                        "lg": "1rem",
+                        "xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #090909;
+            color: #E0E4F5;
+        }
+        .grid-bg {
+            background-size: 50px 50px;
+            background-image: 
+                linear-gradient(to right, rgba(107, 114, 142, 0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(107, 114, 142, 0.1) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display">
+<!-- Top Navigation Exception for Focused View -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-surface-border px-6 py-4 bg-surface">
+<div class="flex items-center gap-4 text-text-main cursor-pointer hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-2xl" data-icon="arrow_back">arrow_back</span>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Dashboard</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-surface-border text-text-main text-sm font-bold leading-normal tracking-wide hover:bg-muted/50 transition-colors">
+<span class="truncate">Reset</span>
+</button>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 bg-primary text-[#090909] text-sm font-bold leading-normal tracking-wide hover:bg-primary/90 transition-colors">
+<span class="truncate">Save Matrix</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col p-6 max-w-[1200px] mx-auto w-full gap-6">
+<!-- Header Info -->
+<div class="flex flex-col gap-2">
+<h1 class="text-text-main text-3xl font-bold tracking-tight">Spatial Matrix</h1>
+<p class="text-muted text-sm font-medium">Drag displays to align physical layout. Snap-to-grid (50px) enabled.</p>
+</div>
+<!-- Status Bar -->
+<div class="flex gap-3 flex-wrap">
+<div class="flex h-9 items-center justify-center gap-x-2 rounded-xl bg-primary/10 border border-primary/20 px-3">
+<span class="material-symbols-outlined text-primary text-[20px]" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<p class="text-primary text-sm font-bold tracking-wide">USB_1: Synced</p>
+</div>
+<div class="flex h-9 items-center justify-center gap-x-2 rounded-xl bg-accent/10 border border-accent/20 px-3">
+<span class="material-symbols-outlined text-accent text-[20px]" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<p class="text-accent text-sm font-bold tracking-wide">TYPEC_1: Overlapping</p>
+</div>
+</div>
+<!-- Matrix Sandbox -->
+<div class="relative flex-1 w-full min-h-[600px] bg-[#090909] rounded-2xl border border-surface-border overflow-hidden grid-bg flex items-center justify-center shadow-2xl">
+<!-- Sandbox Container (Logical Space) -->
+<div class="relative w-[800px] h-[600px]">
+<!-- Main Display (Fixed Center) -->
+<div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[180px] bg-surface/50 border-2 border-surface-border rounded-xl flex flex-col items-center justify-center z-10 backdrop-blur-sm">
+<span class="material-symbols-outlined text-muted text-4xl mb-2" data-icon="desktop_windows">desktop_windows</span>
+<span class="text-text-main font-bold tracking-widest text-sm">DP-1 (MAIN)</span>
+<span class="text-muted font-mono text-xs mt-1">2560x1440</span>
+</div>
+<!-- USB_1 Tablet (Successfully snapped) -->
+<div class="absolute left-[80px] top-[210px] w-[200px] h-[120px] bg-surface border-2 border-primary rounded-xl flex flex-col items-center justify-center z-20 shadow-[0_0_15px_rgba(13,242,200,0.3)] cursor-grab active:cursor-grabbing hover:border-primary/80 transition-colors">
+<div class="absolute top-2 left-2 flex gap-1">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+</div>
+<span class="material-symbols-outlined text-text-main text-2xl mb-1" data-icon="tablet_mac">tablet_mac</span>
+<span class="text-text-main font-bold tracking-widest text-xs">USB_1</span>
+<span class="text-primary font-mono text-[10px] mt-1">X: -1920 Y: 0</span>
+</div>
+<!-- TYPEC_1 Tablet (Error State / Dragging) -->
+<div class="absolute left-[380px] top-[180px] w-[200px] h-[120px] bg-accent/20 border-2 border-accent rounded-xl flex flex-col items-center justify-center z-30 shadow-[0_0_20px_rgba(255,59,48,0.2)] cursor-grabbing transform rotate-2">
+<div class="absolute top-2 left-2 flex gap-1">
+<div class="w-2 h-2 rounded-full bg-accent animate-pulse"></div>
+</div>
+<span class="material-symbols-outlined text-text-main text-2xl mb-1" data-icon="tablet_mac">tablet_mac</span>
+<span class="text-text-main font-bold tracking-widest text-xs">TYPEC_1</span>
+<span class="text-accent font-mono text-[10px] mt-1">X: 240 Y: -150</span>
+</div>
+</div>
+<!-- Coordinate Readout Panel (Bottom Right) -->
+<div class="absolute bottom-6 right-6 bg-surface/90 backdrop-blur-md border border-surface-border rounded-xl p-4 shadow-xl flex flex-col gap-2 pointer-events-none">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-muted text-sm" data-icon="my_location">my_location</span>
+<span class="text-muted text-xs font-bold uppercase tracking-wider">Live Coordinates</span>
+</div>
+<div class="font-mono text-sm flex flex-col gap-1">
+<div class="flex justify-between gap-4">
+<span class="text-text-main">USB_1</span>
+<span class="text-primary">X:-1920 Y:0</span>
+</div>
+<div class="flex justify-between gap-4">
+<span class="text-text-main">TYPEC_1</span>
+<span class="text-accent">X:240 Y:-150</span>
+</div>
+</div>
+</div>
+<!-- Tool Controls (Bottom Left) -->
+<div class="absolute bottom-6 left-6 flex gap-2">
+<button class="w-10 h-10 rounded-full bg-surface border border-surface-border flex items-center justify-center text-text-main hover:bg-surface-border transition-colors shadow-lg" title="Zoom In">
+<span class="material-symbols-outlined" data-icon="zoom_in">zoom_in</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface border border-surface-border flex items-center justify-center text-text-main hover:bg-surface-border transition-colors shadow-lg" title="Zoom Out">
+<span class="material-symbols-outlined" data-icon="zoom_out">zoom_out</span>
+</button>
+<button class="w-10 h-10 rounded-full bg-surface border border-surface-border flex items-center justify-center text-primary hover:bg-surface-border transition-colors shadow-lg ml-2 border-primary/30" title="Snap to Grid Enabled">
+<span class="material-symbols-outlined" data-icon="grid_on">grid_on</span>
+</button>
+</div>
+</div>
+</main>
+</body></html>

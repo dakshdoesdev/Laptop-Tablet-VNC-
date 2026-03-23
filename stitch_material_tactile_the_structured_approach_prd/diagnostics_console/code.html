@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Material Tactile: Dual Tablet VNC Manager - Diagnostics Console</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&amp;family=Inter:wght@400..700&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#00E5FF",
+          "background-light": "#f6f8f8",
+          "background-dark": "#09090B",
+          "surface": "#18181B",
+          "surface-highlight": "#27272A",
+          "text-main": "#F4F4F5",
+          "text-muted": "#A1A1AA",
+          "accent-usb": "#FFB800",
+          "accent-typec": "#FF007F",
+          "status-success": "#39FF14",
+          "status-error": "#FF3333",
+        },
+        fontFamily: {
+          "display": ["Space Grotesk", "sans-serif"],
+          "body": ["Inter", "sans-serif"],
+          "mono": ["JetBrains Mono", "monospace"],
+        },
+        borderRadius: {"DEFAULT": "0.5rem", "lg": "16px", "xl": "1.5rem", "full": "9999px"},
+        boxShadow: {
+          'bento': '0 8px 32px rgba(0,0,0,0.4)',
+        }
+      },
+    },
+  }
+</script>
+<style>
+  body {
+    font-family: 'Inter', sans-serif;
+  }
+  .font-display {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .glass-border {
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+  }
+  
+  /* Custom scrollbar for terminal */
+  .terminal-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+  .terminal-scroll::-webkit-scrollbar-track {
+    background: #09090B;
+  }
+  .terminal-scroll::-webkit-scrollbar-thumb {
+    background: #27272A;
+    border-radius: 4px;
+  }
+  .terminal-scroll::-webkit-scrollbar-thumb:hover {
+    background: #A1A1AA;
+  }
+</style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-text-main min-h-screen flex flex-col antialiased">
+<!-- Minimal Header for Focused View (Rule 3) -->
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-surface px-6 py-4 bg-background-dark">
+<div class="flex items-center gap-4 text-text-main">
+<button aria-label="Go back" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-highlight transition-colors group">
+<span class="material-symbols-outlined text-text-main group-hover:text-primary transition-colors">arrow_back</span>
+</button>
+<h1 class="text-text-main text-2xl font-display font-bold leading-tight tracking-tight">Diagnostics Console</h1>
+</div>
+<button class="flex min-w-[120px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-surface hover:bg-surface-highlight border border-surface-highlight text-primary text-[15px] font-display font-semibold transition-colors shadow-bento glass-border">
+<span class="material-symbols-outlined mr-2 text-[18px]">download</span>
+<span class="truncate">Export Logs</span>
+</button>
+</header>
+<main class="flex-1 flex flex-col p-6 gap-6 max-h-[calc(100vh-81px)] overflow-hidden">
+<!-- Top Section: Jitter Graph Panel -->
+<section class="flex-[0.45] bg-surface rounded-lg shadow-bento glass-border flex flex-col overflow-hidden relative">
+<div class="flex items-center justify-between px-6 py-4 border-b border-surface-highlight/50 z-10">
+<h2 class="font-display font-bold text-lg text-text-main flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">monitoring</span>
+        Latency &amp; Jitter
+      </h2>
+<div class="flex items-center gap-6 font-mono text-sm">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-accent-usb shadow-[0_0_8px_rgba(255,184,0,0.5)]"></div>
+<span class="text-text-muted">USB Ping (ms)</span>
+<span class="text-text-main font-bold">12.4</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-accent-typec shadow-[0_0_8px_rgba(255,0,127,0.5)]"></div>
+<span class="text-text-muted">Type-C Ping (ms)</span>
+<span class="text-text-main font-bold">4.1</span>
+</div>
+<div class="px-2 py-1 rounded bg-surface-highlight text-status-success text-xs font-bold border border-status-success/20 ml-2">
+          LIVE
+        </div>
+</div>
+</div>
+<div class="flex-1 relative p-6 flex flex-col">
+<!-- Simulated Graph Tooltip (Hover State) -->
+<div class="absolute left-[65%] top-[30%] -translate-x-1/2 -translate-y-[120%] bg-surface-highlight border border-white/10 rounded px-3 py-2 shadow-xl z-20 flex flex-col gap-1 hidden md:flex">
+<div class="text-text-muted font-mono text-[11px] mb-1">14:22:31.045</div>
+<div class="flex items-center gap-2 font-mono text-xs">
+<div class="w-2 h-2 rounded-full bg-accent-usb"></div>
+<span class="text-text-main">USB:</span>
+<span class="text-accent-usb">14.2ms</span>
+</div>
+<div class="flex items-center gap-2 font-mono text-xs">
+<div class="w-2 h-2 rounded-full bg-accent-typec"></div>
+<span class="text-text-main">Type-C:</span>
+<span class="text-accent-typec">5.8ms</span>
+</div>
+</div>
+<!-- Simulated Crosshair -->
+<div class="absolute left-[65%] top-6 bottom-8 w-[1px] bg-white/20 z-10 hidden md:block pointer-events-none"></div>
+<!-- Graph Area -->
+<div class="flex-1 w-full h-full relative">
+<!-- Y-Axis Grid Lines & Labels -->
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none z-0">
+<div class="flex items-center border-t border-white/5 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">50</span>
+</div>
+<div class="flex items-center border-t border-white/5 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">40</span>
+</div>
+<div class="flex items-center border-t border-white/5 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">30</span>
+</div>
+<div class="flex items-center border-t border-white/5 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">20</span>
+</div>
+<div class="flex items-center border-t border-white/5 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">10</span>
+</div>
+<div class="flex items-center border-t border-white/10 w-full h-0 relative">
+<span class="absolute -left-8 -top-3 text-[10px] font-mono text-text-muted">0</span>
+</div>
+</div>
+<!-- SVG Graph Lines -->
+<div class="absolute inset-0 pl-2">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 100">
+<!-- Type-C Line (Pink - Lower Ping) -->
+<path d="M0,85 L50,82 L100,88 L150,84 L200,81 L250,85 L300,75 L350,83 L400,86 L450,82 L500,85 L550,81 L600,78 L650,84 L700,82 L750,87 L800,83 L850,80 L900,84 L950,81 L1000,83" fill="none" stroke="var(--color-typec, #FF007F)" stroke-linejoin="round" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<!-- USB Line (Yellow - Higher Ping/Jitter) -->
+<path d="M0,60 L50,55 L100,65 L150,40 L200,58 L250,62 L300,45 L350,70 L400,55 L450,60 L500,48 L550,65 L600,50 L650,35 L700,62 L750,58 L800,42 L850,68 L900,55 L950,60 L1000,52" fill="none" stroke="var(--color-usb, #FFB800)" stroke-linejoin="round" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<!-- Highlight Dots at Crosshair -->
+<circle class="hidden md:block" cx="650" cy="84" fill="#09090B" r="4" stroke="var(--color-typec, #FF007F)" stroke-width="2"></circle>
+<circle class="hidden md:block" cx="650" cy="35" fill="#09090B" r="4" stroke="var(--color-usb, #FFB800)" stroke-width="2"></circle>
+</svg>
+</div>
+</div>
+<!-- X-Axis Labels -->
+<div class="flex justify-between mt-2 pt-2 border-t border-white/10 pl-2">
+<span class="text-[10px] font-mono text-text-muted">-60s</span>
+<span class="text-[10px] font-mono text-text-muted">-45s</span>
+<span class="text-[10px] font-mono text-text-muted">-30s</span>
+<span class="text-[10px] font-mono text-text-muted">-15s</span>
+<span class="text-[10px] font-mono text-text-muted">Now</span>
+</div>
+</div>
+</section>
+<!-- Bottom Section: Terminal Log -->
+<section class="flex-[0.55] bg-surface rounded-lg shadow-bento glass-border flex flex-col overflow-hidden relative">
+<div class="flex items-center justify-between px-6 py-3 border-b border-surface-highlight/50 bg-[#121215]">
+<h2 class="font-display font-bold text-lg text-text-main flex items-center gap-2">
+<span class="material-symbols-outlined text-text-muted text-[20px]">terminal</span>
+        Daemon Logs
+      </h2>
+<div class="flex items-center gap-2 text-text-muted text-xs font-mono">
+<span class="w-2 h-2 rounded-full bg-text-muted animate-pulse"></span>
+        Auto-scroll paused
+      </div>
+</div>
+<div class="flex-1 bg-[#09090B] p-4 overflow-y-auto terminal-scroll relative">
+<div class="font-mono text-[13px] leading-relaxed flex flex-col gap-1 min-h-max">
+<!-- Log Lines -->
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:28.102]</span>
+<span class="text-primary shrink-0 w-[80px]">[Hyprland]</span>
+<span class="text-text-main break-all">Matrix updated: DP-1 mapped to logical (0,0)</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:28.155]</span>
+<span class="text-accent-typec shrink-0 w-[80px]">[VNC-TC]</span>
+<span class="text-text-main break-all">Client connected: 192.168.1.144 (Profile: High Bandwidth)</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors bg-accent-usb/10">
+<span class="text-text-muted shrink-0">[14:22:28.890]</span>
+<span class="text-accent-usb shrink-0 w-[80px]">[VNC-USB]</span>
+<span class="text-accent-usb break-all">WARN: Frame drop detected (Render time 18ms &gt; Target 16.6ms)</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:29.001]</span>
+<span class="text-primary shrink-0 w-[80px]">[Daemon]</span>
+<span class="text-text-main break-all">Syncing input events... OK</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:29.450]</span>
+<span class="text-accent-typec shrink-0 w-[80px]">[VNC-TC]</span>
+<span class="text-text-main break-all">NVENC hardware encoding active (32-bit HDR)</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors bg-status-error/10 border-l-2 border-status-error">
+<span class="text-text-muted shrink-0">[14:22:30.112]</span>
+<span class="text-accent-usb shrink-0 w-[80px]">[VNC-USB]</span>
+<span class="text-status-error font-bold break-all">ERROR: Socket timeout on descriptor 14. Attempting reconnect...</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:30.150]</span>
+<span class="text-primary shrink-0 w-[80px]">[Hyprland]</span>
+<span class="text-text-main break-all">Output disconnect event received for virtual_display_1</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors bg-accent-usb/10">
+<span class="text-text-muted shrink-0">[14:22:30.500]</span>
+<span class="text-accent-usb shrink-0 w-[80px]">[VNC-USB]</span>
+<span class="text-accent-usb break-all">WARN: Reconnecting (Attempt 1/3)...</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:31.045]</span>
+<span class="text-accent-typec shrink-0 w-[80px]">[VNC-TC]</span>
+<span class="text-text-main break-all">Heartbeat ping: 5.8ms</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:31.200]</span>
+<span class="text-primary shrink-0 w-[80px]">[Daemon]</span>
+<span class="text-text-main break-all">Polling spatial mapping cache... OK</span>
+</div>
+<div class="flex gap-3 hover:bg-white/5 px-2 py-0.5 rounded transition-colors">
+<span class="text-text-muted shrink-0">[14:22:31.850]</span>
+<span class="text-accent-typec shrink-0 w-[80px]">[VNC-TC]</span>
+<span class="text-text-main break-all">Bandwidth utilized: 84.2 Mbps</span>
+</div>
+</div>
+</div>
+<!-- Jump to Bottom FAB -->
+<button aria-label="Jump to bottom" class="absolute bottom-6 right-8 bg-surface-highlight border border-white/10 hover:border-primary text-text-main hover:text-primary p-3 rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.6)] transition-all z-20 flex items-center justify-center group">
+<span class="material-symbols-outlined text-[24px]">arrow_downward</span>
+</button>
+</section>
+</main>
+</body></html>
